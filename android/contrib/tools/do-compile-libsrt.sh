@@ -89,7 +89,7 @@ elif [ "$FF_ARCH" = "x86" ]; then
 
     FF_PLATFORM_CFG_FLAGS="android-x86"
 
-    FF_CFG_FLAGS="$FF_CFG_FLAGS no-asm"
+    # FF_CFG_FLAGS="$FF_CFG_FLAGS no-asm"
 
 elif [ "$FF_ARCH" = "x86_64" ]; then
     FF_ANDROID_PLATFORM=android-21
@@ -166,40 +166,43 @@ FF_CFG_FLAGS="$FF_CFG_FLAGS $COMMON_FF_CFG_FLAGS"
 # FF_CFG_FLAGS="$FF_CFG_FLAGS no-shared"
 # FF_CFG_FLAGS="$FF_CFG_FLAGS --openssldir=$FF_PREFIX"
 
+
+
+FF_CFG_FLAGS="$FF_CFG_FLAGS --cmake-system-name=Android"
+FF_CFG_FLAGS="$FF_CFG_FLAGS --android-toolchain=gcc"
 # FF_CFG_FLAGS="$FF_CFG_FLAGS --with-compiler-prefix=${FF_CROSS_PREFIX}-"
 # FF_CFG_FLAGS="$FF_CFG_FLAGS --with-target-path=$FF_TOOLCHAIN_PATH"
 
-FF_CFG_FLAGS="$FF_CFG_FLAGS --cmake-system-name=Android"
-# FF_CFG_FLAGS="$FF_CFG_FLAGS --cmake-system-version=16"
 # FF_CFG_FLAGS="$FF_CFG_FLAGS --cmake-android-arch-abi=$FF_ARCH"
-# FF_CFG_FLAGS="$FF_CFG_FLAGS --android-toolchain=gcc --android-stl=c++_shared"
-# FF_CFG_FLAGS="$FF_CFG_FLAGS --cmake-android-ndk=${FF_TOOLCHAIN_PATH}"
-# CMAKE_ANDROID_STANDALONE_TOOLCHAIN
-FF_CFG_FLAGS="$FF_CFG_FLAGS --cmake-android-standalone-toolchain=${FF_TOOLCHAIN_PATH}"
+# FF_CFG_FLAGS="$FF_CFG_FLAGS --cmake-android-standalone-toolchain=${FF_TOOLCHAIN_PATH}"
+FF_CFG_FLAGS="$FF_CFG_FLAGS --cmake-prefix-path=${FF_PREFIX}"
+FF_CFG_FLAGS="$FF_CFG_FLAGS --cmake-install-prefix=${FF_PREFIX}"
 FF_CFG_FLAGS="$FF_CFG_FLAGS --use-openssl-pc=off"
 FF_CFG_FLAGS="$FF_CFG_FLAGS --openssl-include-dir=$FF_BUILD_ROOT/build/openssl-$FF_ARCH/output/include"
 FF_CFG_FLAGS="$FF_CFG_FLAGS --openssl-ssl-library=$FF_BUILD_ROOT/build/openssl-$FF_ARCH/output/lib/libssl.a"
 FF_CFG_FLAGS="$FF_CFG_FLAGS --openssl-crypto-library=$FF_BUILD_ROOT/build/openssl-$FF_ARCH/output/lib/libcrypto.a"
 FF_CFG_FLAGS="$FF_CFG_FLAGS --enable-shared=off --enable-c++11=off"
+FF_CFG_FLAGS="$FF_CFG_FLAGS --enable-static=on"
+FF_CFG_FLAGS="$FF_CFG_FLAGS --enable-apps=off"
+FF_CFG_FLAGS="$FF_CFG_FLAGS --enable-c++-deps=on"
+FF_CFG_FLAGS="$FF_CFG_FLAGS --enable-c-deps=on"
+# FF_CFG_FLAGS="$FF_CFG_FLAGS --enable-c-deps=on"
 
-# FF_CFG_FLAGS="$FF_CFG_FLAGS --LINUX=ON"
-# FF_CFG_FLAGS="$FF_CFG_FLAGS --cmake-toolchain-file=${ANDROID_NDK}/build/cmake/android.toolchain.cmake"
+# FF_CFG_FLAGS="$FF_CFG_FLAGS $FF_PLATFORM_CFG_FLAGS"
 
-# export AR=${FF_CROSS_PREFIX}-ar
-# export AS=${FF_CROSS_PREFIX}-gcc
-# export AS=${FF_CROSS_PREFIX}-gcc
-# export CC=${FF_CROSS_PREFIX}-gcc
-# export CXX=${FF_CROSS_PREFIX}-g++
-# export LD=${FF_CROSS_PREFIX}-ld
+
+export CC=${FF_CROSS_PREFIX}-gcc
+export AR=${FF_CROSS_PREFIX}-ar
+export AS=${FF_CROSS_PREFIX}-gcc
+export AS=${FF_CROSS_PREFIX}-gcc
+export CXX=${FF_CROSS_PREFIX}-g++
+export LD=${FF_CROSS_PREFIX}-ld
 # export STRIP=${FF_CROSS_PREFIX}-strip
 
-export CFLAGS="$CFLAGS --sysroot=${FF_TOOLCHAIN_PATH}/sysroot -fPIE -fPIC -D__ANDROID__"
-export CPPFLAGS="$CPPFLAGS --sysroot=${FF_TOOLCHAIN_PATH}/sysroot -fPIC -D__ANDROID__"
-export CXXFLAGS="$CXXFLAGS --sysroot=${FF_TOOLCHAIN_PATH}/sysroot -fPIC -D__ANDROID__"
-
+# export CFLAGS="$CFLAGS --sysroot=${FF_TOOLCHAIN_PATH}/sysroot -fPIE -fPIC"
+export CFLAGS="$CFLAGS -fPIE -fPIC"
+# export CXXFLAGS="$CXXFLAGS -march=armv7-a"
 export LDFLAGS="$LDFLAGS -pie"
-
-git clean -fx
 
 #--------------------
 echo ""
@@ -207,6 +210,9 @@ echo "--------------------"
 echo "[*] configurate libsrt"
 echo "--------------------"
 cd $FF_SOURCE
+
+git clean -fx
+
 #if [ -f "./Makefile" ]; then
 #    echo 'reuse configure'
 #else
@@ -223,10 +229,4 @@ echo "[*] compile libsrt"
 echo "--------------------"
 make depend
 make $FF_MAKE_FLAGS
-make install_sw
-
-#--------------------
-echo ""
-echo "--------------------"
-echo "[*] link libsrt"
-echo "--------------------"
+make install

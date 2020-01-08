@@ -227,7 +227,7 @@ echo "[*] check ffmpeg env"
 echo "--------------------"
 export PATH=$FF_TOOLCHAIN_PATH/bin/:$PATH
 #export CC="ccache ${FF_CROSS_PREFIX}-gcc"
-export CC="${FF_CROSS_PREFIX}-gcc"
+export CC=${FF_CROSS_PREFIX}-gcc
 export LD=${FF_CROSS_PREFIX}-ld
 export AR=${FF_CROSS_PREFIX}-ar
 export STRIP=${FF_CROSS_PREFIX}-strip
@@ -274,10 +274,11 @@ fi
 if [ -f "${FF_DEP_LIBSRT_LIB}/libsrt.a" ]; then
     echo "libsrt detected"
     FF_CFG_FLAGS="$FF_CFG_FLAGS --enable-libsrt"
-
-    FF_CFLAGS="$FF_CFLAGS -I${FF_DEP_LIBSRT_INC}"
-    FF_DEP_LIBS="$FF_DEP_LIBS -L${FF_DEP_LIBSRT_LIB} -lsrt"
+    # FF_CFLAGS="$FF_CFLAGS -I${FF_DEP_LIBSRT_INC}"
+    # FF_DEP_LIBS="$FF_DEP_LIBS -L${FF_DEP_LIBSRT_LIB} -lsrt -lstdc++ -lm"
 fi
+
+export PKG_CONFIG_PATH="${FF_DEP_LIBSRT_LIB}/pkgconfig"
 
 
 FF_CFG_FLAGS="$FF_CFG_FLAGS $COMMON_FF_CFG_FLAGS"
@@ -291,6 +292,7 @@ FF_CFG_FLAGS="$FF_CFG_FLAGS --cross-prefix=${FF_CROSS_PREFIX}-"
 FF_CFG_FLAGS="$FF_CFG_FLAGS --enable-cross-compile"
 FF_CFG_FLAGS="$FF_CFG_FLAGS --target-os=linux"
 FF_CFG_FLAGS="$FF_CFG_FLAGS --enable-pic"
+# FF_CFG_FLAGS="$FF_CFG_FLAGS --pkg-config=true"
 # FF_CFG_FLAGS="$FF_CFG_FLAGS --disable-symver"
 
 if [ "$FF_ARCH" = "x86" ]; then

@@ -56,7 +56,7 @@ set(IJK_DESKTOP_CONTRIB_PATH ${IJKROOT_PATH}/desktop/contrib)
 
 if (IJK_X64)
     if (APPLE) 
-        set(IJK_FFMPAG_BUILD_DIR ${IJKROOT_PATH}/osx/contrib/build/ffmpeg-x86_64/output)
+        set(IJK_FFMPAG_BUILD_DIR ${IJKROOT_PATH}/osx/contrib/build/)
     else()
         set(IJK_FFMPAG_BUILD_DIR ${IJK_DESKTOP_CONTRIB_PATH}/ffmpeg/x64)
     endif()
@@ -106,6 +106,9 @@ if (WIN32)
     target_compile_options(IjkPlayer PRIVATE /W3 /we4013)
 endif ()
 
+add_library(srt STATIC IMPORTED)
+set_target_properties(srt PROPERTIES IMPORTED_LOCATION ${IJK_FFMPAG_BUILD_DIR}/lib/libsrt.a)
+
 add_library(avcodec STATIC IMPORTED)
 set_target_properties(avcodec PROPERTIES IMPORTED_LOCATION ${IJK_FFMPAG_BUILD_DIR}/lib/libavcodec.a)
 
@@ -128,7 +131,7 @@ if (WIN32)
 endif ()
 
 
-target_link_libraries(IjkPlayer avcodec avformat avutil swresample swscale)
+target_link_libraries(IjkPlayer avcodec avformat avutil swresample swscale srt)
 target_link_libraries(IjkPlayer portaudio_static)
 target_compile_definitions(IjkPlayer PRIVATE -DBUILDING_IJK=1)
 
