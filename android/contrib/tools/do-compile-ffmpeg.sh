@@ -40,7 +40,7 @@ fi
 
 
 FF_BUILD_ROOT=`pwd`
-FF_ANDROID_PLATFORM=android-9
+FF_ANDROID_PLATFORM=android-14
 
 
 FF_BUILD_NAME=
@@ -166,7 +166,6 @@ elif [ "$FF_ARCH" = "arm64" ]; then
 
     FF_EXTRA_CFLAGS="$FF_EXTRA_CFLAGS"
     FF_EXTRA_LDFLAGS="$FF_EXTRA_LDFLAGS"
-
     FF_ASSEMBLER_SUB_DIRS="aarch64 neon"
 
 else
@@ -187,16 +186,16 @@ FF_TOOLCHAIN_PATH=$FF_BUILD_ROOT/build/toolchain-$FF_ARCH
 FF_MAKE_TOOLCHAIN_FLAGS="$FF_MAKE_TOOLCHAIN_FLAGS --install-dir=$FF_TOOLCHAIN_PATH"
 
 FF_SYSROOT=$FF_TOOLCHAIN_PATH/sysroot
-FF_PREFIX=$FF_BUILD_ROOT/build/$FF_BUILD_NAME/output
+FF_PREFIX=$FF_BUILD_ROOT/build/output-$FF_ARCH
 
-FF_DEP_OPENSSL_INC=$FF_BUILD_ROOT/build/$FF_BUILD_NAME_OPENSSL/output/include
-FF_DEP_OPENSSL_LIB=$FF_BUILD_ROOT/build/$FF_BUILD_NAME_OPENSSL/output/lib
+FF_DEP_OPENSSL_INC=$FF_PREFIX/include
+FF_DEP_OPENSSL_LIB=$FF_PREFIX/lib
 
-FF_DEP_LIBSOXR_INC=$FF_BUILD_ROOT/build/$FF_BUILD_NAME_LIBSOXR/output/include
-FF_DEP_LIBSOXR_LIB=$FF_BUILD_ROOT/build/$FF_BUILD_NAME_LIBSOXR/output/lib
+FF_DEP_LIBSOXR_INC=$FF_PREFIX/include
+FF_DEP_LIBSOXR_LIB=$FF_PREFIX/lib
 
-FF_DEP_LIBSRT_INC=$FF_BUILD_ROOT/build/$FF_BUILD_NAME_LIBSRT/output/include
-FF_DEP_LIBSRT_LIB=$FF_BUILD_ROOT/build/$FF_BUILD_NAME_LIBSRT/output/lib
+FF_DEP_LIBSRT_INC=$FF_PREFIX/include
+FF_DEP_LIBSRT_LIB=$FF_PREFIX/lib
 
 case "$UNAME_S" in
     CYGWIN_NT-*)
@@ -274,12 +273,15 @@ fi
 if [ -f "${FF_DEP_LIBSRT_LIB}/libsrt.a" ]; then
     echo "libsrt detected"
     FF_CFG_FLAGS="$FF_CFG_FLAGS --enable-libsrt"
-    # FF_CFLAGS="$FF_CFLAGS -I${FF_DEP_LIBSRT_INC}"
-    # FF_DEP_LIBS="$FF_DEP_LIBS -L${FF_DEP_LIBSRT_LIB} -lsrt -lstdc++ -lm"
+    FF_CFG_FLAGS="$FF_CFG_FLAGS --enable-protocol=libsrt"
+
+    FF_CFLAGS="$FF_CFLAGS -I${FF_DEP_LIBSRT_INC}"
+    FF_DEP_LIBS="$FF_DEP_LIBS -L${FF_DEP_LIBSRT_LIB} -lsrt -lc -lm -ldl -lcrypto -lssl -lstdc++"
 fi
 
-export PKG_CONFIG_PATH="${FF_DEP_LIBSRT_LIB}/pkgconfig"
+export PKG_CONFIG_PATH="${FF_PREFIX}/lib/pkgconfig"
 
+FF_CFG_FLAGS="$FF_CFG_FLAGS --pkgconfigdir=${FF_PREFIX}/lib/pkgconfig"
 
 FF_CFG_FLAGS="$FF_CFG_FLAGS $COMMON_FF_CFG_FLAGS"
 
@@ -292,7 +294,7 @@ FF_CFG_FLAGS="$FF_CFG_FLAGS --cross-prefix=${FF_CROSS_PREFIX}-"
 FF_CFG_FLAGS="$FF_CFG_FLAGS --enable-cross-compile"
 FF_CFG_FLAGS="$FF_CFG_FLAGS --target-os=linux"
 FF_CFG_FLAGS="$FF_CFG_FLAGS --enable-pic"
-# FF_CFG_FLAGS="$FF_CFG_FLAGS --pkg-config=true"
+FF_CFG_FLAGS="$FF_CFG_FLAGS --pkg-config=pkg-config"
 # FF_CFG_FLAGS="$FF_CFG_FLAGS --disable-symver"
 
 if [ "$FF_ARCH" = "x86" ]; then
