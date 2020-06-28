@@ -55,7 +55,7 @@ jobs:
         shasum android/contrib/*.sh >> checklist.chk
         shasum android/contrib/tools/* >> checklist.chk
         BUILD_KEY=`shasum checklist.chk | awk '{print $1}'`
-        echo '::set-env name=key::$BUILD_KEY'
+        echo "::set-output name=key::${BUILD_KEY}"
 
     - name: Cache ffmpeg build cache
       id: cache-ffmpeg-build
