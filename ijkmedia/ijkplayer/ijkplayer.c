@@ -844,3 +844,29 @@ int ijkmp_get_msg(IjkMediaPlayer *mp, AVMessage *msg, int block)
 
     return -1;
 }
+
+int ijkmp_start_record(IjkMediaPlayer *mp,const char *file_name)
+{
+    pthread_mutex_lock(&mp->mutex);
+    assert(mp);
+    printf("=====开始录制准备=====");
+    MPTRACE("ijkmp_startRecord()\n");
+    int retval = ffp_start_record(mp->ffplayer,file_name);
+    printf("=====开始录制已调用=====\n");
+    MPTRACE("ijkmp_startRecord()=%d\n", retval);
+    pthread_mutex_unlock(&mp->mutex);
+    return retval;
+}
+
+int ijkmp_stop_record(IjkMediaPlayer *mp)
+{
+    pthread_mutex_lock(&mp->mutex);
+    assert(mp);
+    MPTRACE("ijkmp_stopRecord()\n");
+    printf("=====结束录制准备=====\n");
+    int retval = ffp_stop_record(mp->ffplayer);
+    printf("=====结束录制已调用=====\n");
+    MPTRACE("ijkmp_stopRecord()=%d\n", retval);
+    pthread_mutex_unlock(&mp->mutex);
+    return retval;
+}

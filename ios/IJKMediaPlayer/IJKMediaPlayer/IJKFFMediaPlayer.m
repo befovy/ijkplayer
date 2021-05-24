@@ -498,4 +498,14 @@ int ff_media_player_msg_loop(void* arg)
         }
     }
 }
+
+//开始录制
+- (int) startRecordVideo:(NSString*)fileRealPath{
+    return ijkmp_start_record(_nativeMediaPlayer, [fileRealPath UTF8String]);
+}
+//结束录制
+- (int) stopRecordVideo{
+    NSLog(@"结束录制");
+    return ijkmp_stop_record(_nativeMediaPlayer);
+}
 @end

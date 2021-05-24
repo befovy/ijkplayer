@@ -567,6 +567,15 @@ typedef struct FFPlayer {
     AVDictionary *player_opts;
     AVDictionary *swr_opts;
     AVDictionary *swr_preset_opts;
+    AVFormatContext *m_ofmt_ctx;        // 用于输出的AVFormatContext结构体
+    AVOutputFormat *m_ofmt;
+    pthread_mutex_t record_mutex;       // 锁
+    int is_record;                      // 是否在录制
+    int record_error;
+
+    int is_first;                       // 是否第一帧数据
+    int64_t start_pts;                  // 开始录制pts
+    int64_t start_dts;                  // 开始录制dts
 
     /* ffplay options specified by the user */
 #ifdef FFP_MERGE

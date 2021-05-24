@@ -108,6 +108,9 @@ typedef void(^OnSnapshotBlock) (UIImage* __nullable image , NSError* __nullable 
 - (void) addIJKMPEventHandler:(id<IJKMPEventHandler>) handler;
 - (void) removeIJKMPEventHandler:(id<IJKMPEventHandler>) handler;
 
+- (int)  startRecordVideo:(NSString*)fileRealPath;
+- (int)  stopRecordVideo;
+
 @end
 
 NS_ASSUME_NONNULL_END

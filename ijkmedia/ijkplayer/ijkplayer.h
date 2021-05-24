@@ -215,6 +215,9 @@ void           *ijkmp_get_weak_thiz(IjkMediaPlayer *mp);
 void           *ijkmp_set_weak_thiz(IjkMediaPlayer *mp, void *weak_thiz);
 
 void            ijkmp_take_snapshot(IjkMediaPlayer *mp);
+//录制方法
+int             ijkmp_start_record(IjkMediaPlayer *mp,const char *file_name);
+int             ijkmp_stop_record(IjkMediaPlayer *mp);
 
 /* return < 0 if aborted, 0 if no packet and > 0 if packet.  */
 /* need to call msg_free_res for freeing the resouce obtained in msg */

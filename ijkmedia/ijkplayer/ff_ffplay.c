@@ -3679,6 +3679,13 @@ static int read_thread(void *arg)
                 }
             }
         }
+        //录制流程
+        if (ffp->is_record) { // 可以录制时，写入文件
+            if (0 != ffp_record_file(ffp, pkt)) {
+                ffp->record_error = 1;
+                ffp_stop_record(ffp);
+            }
+       }
     }
 
     ret = 0;
@@ -5167,6 +5174,245 @@ void ffp_set_property_int64(FFPlayer *ffp, int id, int64_t value)
         default:
             break;
     }
+}
+            
+//开始录制函数:file_name是保存路径
+int ffp_start_record(FFPlayer *ffp, const char *file_name)
+{
+    assert(ffp);
+
+    VideoState *is = ffp->is;
+    avcodec_register_all();
+    ffp->m_ofmt_ctx = NULL;
+    ffp->m_ofmt = NULL;
+    ffp->is_record = 0;
+    ffp->record_error = 0;
+
+    if (!file_name || !strlen(file_name)) { // 没有路径
+        av_log(ffp, AV_LOG_ERROR, "filename is invalid\n");
+        goto end;
+    }
+
+    if (!is || !is->ic|| is->paused || is->abort_request) { // 没有上下文，或者上下文已经停止
+        av_log(ffp, AV_LOG_ERROR, "is,is->ic,is->paused is invalid\n");
+        goto end;
+    }
+
+    if (ffp->is_record) { // 已经在录制
+        av_log(ffp, AV_LOG_ERROR, "recording has started\n");
+        goto end;
+    }
+
+    AVOutputFormat *oformat = av_guess_format(NULL, file_name, NULL);
+    // 初始化一个用于输出的AVFormatContext结构体
+    avformat_alloc_output_context2(&ffp->m_ofmt_ctx, oformat, NULL, file_name);
+    av_log(NULL, AV_LOG_INFO, "===== 初始化一个用于输出的AVFormatContext结构体 =====\n");
+    if (!ffp->m_ofmt_ctx) {
+        av_log(ffp, AV_LOG_ERROR, "Could not create output context filename is %s\n", file_name);
+        goto end;
+    }
+    ffp->m_ofmt = ffp->m_ofmt_ctx->oformat;
+
+    for (int i = 0; i < is->ic->nb_streams; i++) {
+        // 对照输入流创建输出流通道
+        AVStream *out_stream;
+        AVStream *in_stream = is->ic->streams[i];
+    AVCodecParameters *in_codecpar = in_stream->codecpar;
+    if (in_codecpar->codec_type != AVMEDIA_TYPE_AUDIO &&
+            in_codecpar->codec_type != AVMEDIA_TYPE_VIDEO &&
+            in_codecpar->codec_type != AVMEDIA_TYPE_SUBTITLE) {
+            continue;
+        }
+
+       out_stream = avformat_new_stream(ffp->m_ofmt_ctx, NULL);
+      
+        if (!out_stream) {
+            av_log(ffp, AV_LOG_ERROR, "Failed allocating output stream\n");
+            goto end;
+        }
+
+    // 将输入视频/音频的参数拷贝至输出视频/音频的AVCodecContext结构体
+    av_log(NULL, AV_LOG_INFO, "===== 将输入视频/音频的参数拷贝至输出视频/音频的AVCodecContext结构体 =====\n");
+    if (avcodec_parameters_copy(out_stream->codecpar, in_codecpar) < 0) {
+            av_log(ffp, AV_LOG_ERROR, "Failed to copy codec parameters\n");
+            av_log(NULL, AV_LOG_INFO, "===== 将输入视频/音频的参数拷贝至输出视频/音频的AVCodecContext结构体，拷贝失败 =====\n");
+            goto end;
+    }
+        out_stream->codecpar->codec_tag = 0;
+        //视频流中经常缺少重要参数，会导致写文件头失败，特此在这里处理
+        if(out_stream->codecpar->width<=0){
+            out_stream->codecpar->width=1920;
+        }
+        if(out_stream->codecpar->height<=0){
+            out_stream->codecpar->height=1080;
+        }
+        if (!out_stream->codecpar->block_align)
+            out_stream->codecpar->block_align = out_stream->codecpar->channels *
+                                            av_get_bits_per_sample(out_stream->codecpar->codec_id) >> 3;
+        if(out_stream->codecpar->sample_rate<=0)
+            out_stream->codecpar->sample_rate = 44100;
+        int ret = avcodec_copy_context(out_stream->codec, in_stream->codec);
+        if (ret < 0) {
+           av_log(NULL, AV_LOG_ERROR, "Failed to copy context from input to output stream codec context, error:%d", ret);
+           goto end;
+        }
+        if (ffp->m_ofmt_ctx->oformat->flags & AVFMT_GLOBALHEADER)
+              out_stream->codec->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
+//         out_stream->codecpar->codec_type = AVMEDIA_TYPE_VIDEO;
+    }
+
+    av_dump_format(ffp->m_ofmt_ctx, 0, file_name, 1);
+
+    // 打开输出文件
+    if (!(ffp->m_ofmt->flags & AVFMT_NOFILE)) {
+        if (avio_open(&ffp->m_ofmt_ctx->pb, file_name, AVIO_FLAG_WRITE) < 0) {
+            av_log(ffp, AV_LOG_ERROR, "Could not open output file '%s'", file_name);
+            goto end;
+        }
+    }
+    
+    // 写视频文件头
+    av_log(NULL, AV_LOG_INFO, "===== 写视频文件头 =====\n");
+    int state = avformat_write_header(ffp->m_ofmt_ctx, NULL);
+    av_log(NULL, AV_LOG_INFO, "===== 写视频文件头 =====返回值:%d\n",state);
+    if (state < 0) {
+        av_log(NULL, AV_LOG_INFO, "===== 写视频文件头失败 =====\n");
+        av_log(ffp, AV_LOG_ERROR, "Error occurred when opening output file\n");
+        goto end;
+    }
+    ffp->is_first = 0;
+    ffp->is_record = 1;
+    ffp->record_error = 0;
+    av_log(NULL, AV_LOG_INFO, "===== 文件录制开启成功 =====\n");
+    pthread_mutex_init(&ffp->record_mutex, NULL);
+
+    return 0;
+end:
+    ffp->record_error = 1;
+    return -1;
+}
+
+//停止录播
+int ffp_stop_record(FFPlayer *ffp)
+{
+    pthread_mutex_lock(&ffp->record_mutex);
+    assert(ffp);
+    av_log(NULL, AV_LOG_INFO, "===== 文件录制结束流程 =====\n");
+    if (ffp->is_record) {
+        ffp->is_record = 0;
+        
+        if (ffp->m_ofmt_ctx != NULL) {
+            av_log(NULL, AV_LOG_INFO, "===== 开始写文件尾部 =====\n");
+            int errorCode = av_write_trailer(ffp->m_ofmt_ctx);
+            av_log(NULL, AV_LOG_INFO, "===== 写文件尾部返回：%d =====\n",errorCode);
+            if (ffp->m_ofmt_ctx && !(ffp->m_ofmt->flags & AVFMT_NOFILE)) {
+                av_log(NULL, AV_LOG_INFO, "===== 开始关闭文件 =====\n");
+                avio_closep(&ffp->m_ofmt_ctx->pb);
+                avio_close(ffp->m_ofmt_ctx->pb);
+            }
+            avformat_free_context(ffp->m_ofmt_ctx);
+            ffp->m_ofmt_ctx = NULL;
+            ffp->is_first = 0;
+            av_log(NULL, AV_LOG_INFO, "===== 文件录制结束成功 =====\n");
+        }
+        
+        av_log(ffp, AV_LOG_DEBUG, "stopRecord ok\n");
+    } else {
+        av_log(ffp, AV_LOG_ERROR, "don't need stopRecord\n");
+    }
+    pthread_mutex_unlock(&ffp->record_mutex);
+    pthread_mutex_destroy(&ffp->record_mutex);
+    return 0;
+}
+
+
+//保存文件
+int ffp_record_file(FFPlayer *ffp, AVPacket *packet)
+{
+    pthread_mutex_lock(&ffp->record_mutex);
+    assert(ffp);
+    VideoState *is = ffp->is;
+    int ret = 0;
+    AVStream *in_stream;
+    AVStream *out_stream;
+
+    if (ffp->is_record) {
+        if (packet == NULL) {
+            ffp->record_error = 1;
+            av_log(ffp, AV_LOG_ERROR, "packet == NULL");
+            pthread_mutex_unlock(&ffp->record_mutex);
+            return -1;
+        }
+
+        AVPacket *pkt = (AVPacket *)av_malloc(sizeof(AVPacket)); // 与看直播的 AVPacket分开，不然卡屏
+        av_new_packet(pkt, 0);
+//        av_packet_alloc();
+//        av_packet_from_data(pkt,packet->data,packet->size);
+        if(packet!=NULL && packet->size>0 && packet->data!=NULL){
+            if (0 == av_packet_ref(pkt, packet)) {
+                av_log(ffp, AV_LOG_INFO, "ffp->start_pts:%"PRId64"",ffp->start_pts);
+                av_log(ffp, AV_LOG_INFO, "ffp->start_dts:%"PRId64"",ffp->start_dts);
+
+                av_log(ffp, AV_LOG_INFO, "ffp->is_first:%d",ffp->is_first);
+                if (!ffp->is_first) { // 录制的第一帧，时间从0开始
+                    if(pkt->flags==AV_PKT_FLAG_KEY){
+                        //取到I帧开始写录制数据
+                        ffp->is_first = 1;
+                        ffp->start_pts = pkt->pts;
+                        ffp->start_dts = pkt->dts;
+                        pkt->pts = 0;
+                        pkt->dts = 0;
+                    }else{
+                        ffp->is_first = 0;
+                        ffp->start_pts = pkt->pts;
+                        ffp->start_dts = pkt->dts;
+                        pkt->pts = 0;
+                        pkt->dts = 0;
+                        av_packet_unref(pkt);
+                        pthread_mutex_unlock(&ffp->record_mutex);
+                        return 0;
+                    }
+
+                } else { // 之后的每一帧都要减去，点击开始录制时的值，这样的时间才是正确的
+                    pkt->pts = llabs(pkt->pts - ffp->start_pts);
+                    pkt->dts = llabs(pkt->dts - ffp->start_dts);
+                }
+
+                if(pkt->pts<pkt->dts)
+                    pkt->dts = pkt->pts;
+                if(pkt->dts<pkt->pts)
+                    pkt->pts = pkt->dts;
+                in_stream  = is->ic->streams[pkt->stream_index];
+                out_stream = ffp->m_ofmt_ctx->streams[pkt->stream_index];
+
+                // 转换PTS/DTS
+                pkt->pts = av_rescale_q_rnd(pkt->pts, in_stream->time_base, out_stream->time_base, (AV_ROUND_NEAR_INF|AV_ROUND_PASS_MINMAX));
+                pkt->dts = av_rescale_q_rnd(pkt->dts, in_stream->time_base, out_stream->time_base, (AV_ROUND_NEAR_INF|AV_ROUND_PASS_MINMAX));
+                pkt->duration = av_rescale_q(pkt->duration, in_stream->time_base, out_stream->time_base);
+
+                pkt->pos = -1;
+
+
+                av_log(ffp, AV_LOG_INFO, "inner pkt->pts:%"PRId64"\n",pkt->pts);
+                av_log(ffp, AV_LOG_INFO, "inner pkt->dts:%"PRId64"\n",pkt->dts);
+                av_log(ffp, AV_LOG_INFO, "inner pkt->duration:%"PRId64"\n",pkt->duration);
+
+
+                av_log(ffp, AV_LOG_INFO, "av_interleaved_write_frame\n");
+                // 写入一个AVPacket到输出文件
+                if ((ret = av_interleaved_write_frame(ffp->m_ofmt_ctx, pkt)) < 0) {
+                    av_log(ffp, AV_LOG_ERROR, "Error muxing packet\n");
+                }
+                av_packet_unref(pkt);
+                pthread_mutex_unlock(&ffp->record_mutex);
+            } else {
+                av_log(ffp, AV_LOG_ERROR, "av_packet_ref == NULL");
+            }
+        }
+
+    }
+    pthread_mutex_unlock(&ffp->record_mutex);
+    return ret;
 }
 
 IjkMediaMeta *ffp_get_meta_l(FFPlayer *ffp)
